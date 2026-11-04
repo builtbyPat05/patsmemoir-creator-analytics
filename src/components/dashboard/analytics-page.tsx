@@ -1,10 +1,13 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
+import { AllTimeSummary } from "@/components/dashboard/all-time-summary";
 import { CreatorGrowthCoach } from "@/components/dashboard/creator-growth-coach";
-import { DateRangeControl } from "@/components/dashboard/date-range-control";
+import { DateRangeControl, type SharedRange } from "@/components/dashboard/date-range-control";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { PerformanceChart } from "@/components/dashboard/performance-chart";
+import { ReportingWindow } from "@/components/dashboard/reporting-window";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { TopPostsTable } from "@/components/dashboard/top-posts-table";
 import {
@@ -13,21 +16,26 @@ import {
   performanceRangeLabels,
   platforms,
   type AnalyticsByRange,
-  type PerformanceRange,
   type PlatformKey,
+  type Post,
 } from "@/lib/dashboard-data";
+import type { AllTimeStats } from "@/lib/analytics/all-time";
 
 type AnalyticsPageProps = {
-  dataSource: "demo" | "supabase";
+  dataSource: "windsor" | "empty";
+  allTime: AllTimeStats | null;
   initialAnalyticsByRange: AnalyticsByRange;
   platform: PlatformKey;
+  contentPosts: Post[];
+  allTimeSection?: ReactNode;
 };
 
-export function AnalyticsPage({ dataSource, initialAnalyticsByRange, platform }: AnalyticsPageProps) {
-  const [range, setRange] = useState<PerformanceRange>("7d");
+export function AnalyticsPage({ dataSource, allTime, initialAnalyticsByRange, contentPosts, platform, allTimeSection }: AnalyticsPageProps) {
+  const [range, setRange] = useState<SharedRange>("7d");
   const platformDetails = platforms[platform];
-  const analytics = initialAnalyticsByRange[range];
-  const rangeLabel = performanceRangeLabels[range].toLowerCase();
+  const period = range === "all" ? null : range;
+  const analytics = initialAnalyticsByRange[period ?? "7d"];
+  const rangeLabel = period ? performanceRangeLabels[period].toLowerCase() : "all time";
 
   return (
     <main className="app-shell">
@@ -38,10 +46,12 @@ export function AnalyticsPage({ dataSource, initialAnalyticsByRange, platform }:
           <div>
             <div className="dashboard-eyebrow-row">
               <p className="eyebrow">{platformDetails.label} analytics</p>
-              {dataSource === "demo" && <span className="data-source-badge">Demo data</span>}
+              {dataSource === "windsor" && <span className="data-source-badge">Connected {platformDetails.label} data</span>}
+              {dataSource === "empty" && <span className="data-source-badge">No connected data</span>}
             </div>
             <h1>{platformDetails.label} performance.</h1>
-            <p className="header-subtitle">A focused view of how this channel is moving in the {rangeLabel}.</p>
+            <p className="header-subtitle">{period ? `A focused view of how this channel is moving in the ${rangeLabel}.` : "A summary of this channel since you began."}</p>
+            {period && <ReportingWindow points={analytics.performanceData} />}
           </div>
 
           <div className="topbar-actions">
@@ -49,9 +59,15 @@ export function AnalyticsPage({ dataSource, initialAnalyticsByRange, platform }:
           </div>
         </header>
 
+        {range === "all" ? <>
+          <AllTimeSummary title={`${platformDetails.label} all time`} stats={allTime} platform={platform} />
+          {platform === "tiktok" && allTimeSection}
+        </> : <>
+        {dataSource === "empty" && <p className="header-subtitle">No analytics are connected for this channel yet. Zeros below are placeholders, not measured results.</p>}
+
         <div className="platform-view-banner" style={{ borderLeftColor: platformDetails.color }}>
           <span className="platform-view-dot" style={{ background: platformDetails.color }} aria-hidden="true" />
-          <span>Showing only {platformDetails.label} data</span>
+          <span>{dataSource === "empty" ? `Waiting for ${platformDetails.label} data` : `Showing only ${platformDetails.label} data`}</span>
           <span className="platform-view-total">{formatCompactNumber(analytics.views)} total views in the {rangeLabel}</span>
         </div>
 
@@ -59,7 +75,7 @@ export function AnalyticsPage({ dataSource, initialAnalyticsByRange, platform }:
           <MetricCard label="Total views" value={formatCompactNumber(analytics.views)} change={analytics.changes.views} detail="vs. previous period" tone={platformDetails.tone} />
           <MetricCard label="Engagement rate" value={formatPercentage(analytics.engagementRate)} change={analytics.changes.engagementRate} detail="weighted for this channel" tone="teal" />
           <MetricCard label="Followers" value={formatCompactNumber(analytics.followers)} change={analytics.changes.followers} detail="total audience" tone="violet" />
-          <MetricCard label="Posts published" value={String(analytics.postsPublished)} change={analytics.changes.postsPublished} changeUnit="count" detail="in selected period" tone="gold" />
+          <MetricCard label={dataSource === "windsor" && platform === "youtube" ? "New videos tracked" : "Posts published"} value={String(analytics.postsPublished)} change={analytics.changes.postsPublished} changeUnit="count" detail={dataSource === "windsor" && platform === "youtube" ? "uploads with measured views" : "in selected period"} tone="gold" />
         </div>
 
         <div className="content-grid">
@@ -84,14 +100,19 @@ export function AnalyticsPage({ dataSource, initialAnalyticsByRange, platform }:
           <CreatorGrowthCoach analytics={analytics} range={range} scopeLabel={platformDetails.label} />
         </div>
 
+        {platform !== "tiktok" && allTimeSection}
+
+        </>}
+
         <section className="panel posts-panel" aria-labelledby={`${platform}-posts-heading`}>
           <div className="panel-heading posts-heading">
             <div>
               <p className="section-kicker">Content performance</p>
-              <h2 id={`${platform}-posts-heading`}>Top {platformDetails.label} posts for the {rangeLabel}</h2>
+              <h2 id={`${platform}-posts-heading`}>{platformDetails.label} published content</h2>
+              <p className="reporting-window">{dataSource === "empty" ? "No connected content yet." : "Published posts returned by Windsor. Views are lifetime totals, independent of the date selector."}</p>
             </div>
           </div>
-          <TopPostsTable posts={analytics.topPosts} formatNumber={formatCompactNumber} />
+          <TopPostsTable posts={contentPosts} formatNumber={formatCompactNumber} />
         </section>
       </section>
     </main>

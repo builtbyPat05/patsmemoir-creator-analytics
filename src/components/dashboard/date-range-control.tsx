@@ -1,16 +1,24 @@
 "use client";
 
-import { performanceRangeOptions, type PerformanceRange } from "@/lib/dashboard-data";
+import type { PerformanceRange } from "@/lib/dashboard-data";
+
+export type SharedRange = Extract<PerformanceRange, "7d" | "30d"> | "all";
+
+const options: { key: SharedRange; label: string }[] = [
+  { key: "7d", label: "7D" },
+  { key: "30d", label: "30D" },
+  { key: "all", label: "All time" },
+];
 
 type DateRangeControlProps = {
-  value: PerformanceRange;
-  onChange: (range: PerformanceRange) => void;
+  value: SharedRange;
+  onChange: (range: SharedRange) => void;
 };
 
 export function DateRangeControl({ value, onChange }: DateRangeControlProps) {
   return (
     <div className="range-control" role="group" aria-label="Select dashboard time range">
-      {performanceRangeOptions.map((option) => (
+      {options.map((option) => (
         <button
           aria-pressed={value === option.key}
           className={value === option.key ? "range-button range-button-active" : "range-button"}

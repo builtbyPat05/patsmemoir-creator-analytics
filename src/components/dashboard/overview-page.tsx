@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { AllTimeSummary } from "@/components/dashboard/all-time-summary";
 import { CreatorGrowthCoach } from "@/components/dashboard/creator-growth-coach";
-import { DateRangeControl } from "@/components/dashboard/date-range-control";
+import { DateRangeControl, type SharedRange } from "@/components/dashboard/date-range-control";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { PerformanceChart } from "@/components/dashboard/performance-chart";
 import { PlatformBreakdown } from "@/components/dashboard/platform-breakdown";
+import { ReportingWindow } from "@/components/dashboard/reporting-window";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { TopPostsTable } from "@/components/dashboard/top-posts-table";
 import {
@@ -13,24 +15,30 @@ import {
   formatPercentage,
   performanceRangeLabels,
   type AnalyticsByRange,
-  type PerformanceRange,
   type PlatformAnalyticsByRange,
+  type Post,
 } from "@/lib/dashboard-data";
+import type { AllTimeDashboard } from "@/lib/analytics/all-time";
 
 type OverviewPageProps = {
-  dataSource: "demo" | "supabase";
+  connected: { youtube: boolean; tiktok: boolean };
+  allTime: AllTimeDashboard;
   initialAnalyticsByRange: AnalyticsByRange;
   initialPlatformAnalyticsByRange: PlatformAnalyticsByRange;
+  contentPosts: { youtube: Post[]; instagram: Post[]; tiktok: Post[] };
 };
 
 export function OverviewPage({
-  dataSource,
+  connected,
+  allTime,
   initialAnalyticsByRange,
   initialPlatformAnalyticsByRange,
+  contentPosts,
 }: OverviewPageProps) {
-  const [range, setRange] = useState<PerformanceRange>("7d");
-  const analytics = initialAnalyticsByRange[range];
-  const rangeLabel = performanceRangeLabels[range].toLowerCase();
+  const [range, setRange] = useState<SharedRange>("7d");
+  const period = range === "all" ? null : range;
+  const analytics = initialAnalyticsByRange[period ?? "7d"];
+  const rangeLabel = period ? performanceRangeLabels[period].toLowerCase() : "all time";
 
   return (
     <main className="app-shell">
@@ -40,17 +48,24 @@ export function OverviewPage({
         <header className="topbar">
           <div>
             <div className="dashboard-eyebrow-row">
-              <p className="eyebrow">All platforms</p>
-              {dataSource === "demo" && <span className="data-source-badge">Demo data</span>}
+              <p className="eyebrow">Connected platforms</p>
+              <span className="data-source-badge">{connected.youtube || connected.tiktok ? "Windsor data" : "No connected data"}</span>
             </div>
             <h1>Good morning, Patrick.</h1>
-            <p className="header-subtitle">Here&apos;s how your personal brand is moving across every channel in the {rangeLabel}.</p>
+            <p className="header-subtitle">Your connected channels {period ? `in the ${rangeLabel}` : "since you began"}.</p>
+            {period && <ReportingWindow points={analytics.performanceData} />}
           </div>
 
           <div className="topbar-actions">
             <DateRangeControl value={range} onChange={setRange} />
           </div>
         </header>
+
+        {range === "all" ? <AllTimeSummary title="All-time overview" stats={allTime.overview} breakdown={allTime} /> : <>
+        <p className="header-subtitle">
+          {connected.youtube && connected.tiktok ? "YouTube and TikTok are included." : "Only available channels are included."} Instagram is not connected yet.
+          {!connected.tiktok && " TikTok is currently unavailable."}
+        </p>
 
         <div className="metric-grid">
           <MetricCard label="Total views" value={formatCompactNumber(analytics.views)} change={analytics.changes.views} detail="vs. previous period" tone="coral" />
@@ -86,15 +101,20 @@ export function OverviewPage({
           <CreatorGrowthCoach analytics={analytics} range={range} scopeLabel="All platforms" />
         </div>
 
-        <section className="panel posts-panel" aria-labelledby="posts-heading">
-          <div className="panel-heading posts-heading">
-            <div>
-              <p className="section-kicker">Content performance</p>
-              <h2 id="posts-heading">Top posts for the {rangeLabel}</h2>
+        </>}
+
+        {(["youtube", "tiktok", "instagram"] as const).map((platform) => (
+          <section className="panel posts-panel" aria-labelledby={`${platform}-posts-heading`} key={platform}>
+            <div className="panel-heading posts-heading">
+              <div>
+                <p className="section-kicker">Content performance</p>
+                <h2 id={`${platform}-posts-heading`}>{platform === "youtube" ? "YouTube" : platform === "tiktok" ? "TikTok" : "Instagram"} published content</h2>
+                <p className="reporting-window">{platform === "instagram" ? "No connected content yet." : "Published posts returned by Windsor. Views are lifetime totals, independent of the date selector."}</p>
+              </div>
             </div>
-          </div>
-          <TopPostsTable posts={analytics.topPosts} formatNumber={formatCompactNumber} />
-        </section>
+            <TopPostsTable posts={contentPosts[platform]} formatNumber={formatCompactNumber} />
+          </section>
+        ))}
       </section>
     </main>
   );

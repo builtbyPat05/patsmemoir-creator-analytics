@@ -1,24 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, ChevronRight, Facebook, Instagram, Link2, Menu, MessageCircle, Moon, Music2, Sparkles, Sun, X, Youtube } from "lucide-react";
+import { BarChart3, ChevronRight, Instagram, Menu, MessageCircle, Moon, Music2, Sparkles, Sun, X, Youtube } from "lucide-react";
 import Link from "next/link";
 import { type PlatformKey } from "@/lib/dashboard-data";
 
-type DashboardSection = "overview" | "coach" | "connections" | PlatformKey;
+type DashboardSection = "overview" | "coach" | PlatformKey;
 
 const themeStorageKey = "patsmemoir-dashboard-theme";
 
 const navigation = [
   { label: "Overview", href: "/", icon: BarChart3, section: "overview" as const },
   { label: "Growth Coach", href: "/coach", icon: MessageCircle, section: "coach" as const },
-  { label: "Connections", href: "/settings/connections", icon: Link2, section: "connections" as const },
 ];
 
 const platformNavigation = [
   { label: "YouTube", href: "/youtube", icon: Youtube, section: "youtube" as const },
   { label: "Instagram", href: "/instagram", icon: Instagram, section: "instagram" as const },
-  { label: "Facebook", href: "/facebook", icon: Facebook, section: "facebook" as const },
   { label: "TikTok", href: "/tiktok", icon: Music2, section: "tiktok" as const },
 ];
 

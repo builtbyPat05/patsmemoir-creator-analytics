@@ -1,19 +1,18 @@
-import { ArrowUpRight, Facebook, Instagram, Music2, Youtube } from "lucide-react";
+import { ArrowUpRight, Instagram, Music2, Youtube } from "lucide-react";
 import Link from "next/link";
 import {
   formatCompactNumber,
   formatPercentage,
   performanceRangeLabels,
+  platformKeys,
   platforms,
   type PerformanceRange,
   type PlatformAnalyticsByRange,
-  type PlatformKey,
 } from "@/lib/dashboard-data";
 
 const platformIcons = {
   youtube: Youtube,
   instagram: Instagram,
-  facebook: Facebook,
   tiktok: Music2,
 };
 
@@ -34,7 +33,7 @@ export function PlatformBreakdown({ analyticsByPlatform, range }: PlatformBreakd
       </div>
 
       <div className="platform-grid">
-        {(Object.keys(platforms) as PlatformKey[]).map((platformKey) => {
+        {platformKeys.map((platformKey) => {
           const platform = platforms[platformKey];
           const analytics = analyticsByPlatform[platformKey][range];
           const Icon = platformIcons[platformKey];

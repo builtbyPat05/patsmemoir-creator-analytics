@@ -1,212 +1,130 @@
-# PatsMemoir Creator Dashboard
+# PatsMemoir Creator Analytics
 
-A responsive Next.js analytics dashboard for YouTube, Instagram, Facebook, and TikTok. The UI works in two modes:
+A deployed creator dashboard that brings my YouTube and TikTok analytics into one workspace. Built from a real problem in my content workflow: understanding reach, audience growth, and engagement without switching between platforms.
 
-- **Demo mode:** deterministic sample analytics when no creator is signed in or no imported metrics exist.
-- **Supabase mode:** authenticated, owner-scoped analytics loaded from the normalized database tables.
+**[Open the live dashboard](https://creator-dashboard-roan.vercel.app/)** · **[My portfolio](https://builtbypat05.github.io/builder.html#creator-dashboard)**
+
+![PatsMemoir dashboard showing connected YouTube and TikTok analytics](docs/dashboard-preview.png)
+
+*Screenshot captured November 2026. Values change as the connected sources update.*
+
+## Current status
+
+The dashboard is deployed on Vercel and retrieves real account data through Windsor.ai. It is a working personal project with ongoing development, not a finished multi-user analytics service.
+
+| Area | Status |
+| --- | --- |
+| YouTube | Connected through Windsor: daily analytics, channel totals, and published videos |
+| TikTok | Connected through Windsor: available daily analytics, account totals, and video catalogue |
+| Overview | Combines available YouTube and TikTok data and shows each platform's content |
+| Instagram | Interface present; connection pending. Displays an empty state and zero values |
+| Growth Coach | Scripted, deterministic demo; no AI model or stored conversations |
+| Facebook / Supabase | Removed from the current implementation |
+
+## Features
+
+- Shared 7-day and 30-day reporting controls, plus a separate all-time summary.
+- Separate views, followers, and engagement charts with hover exploration, keyboard controls, and chart visibility toggles.
+- Platform pages and a combined overview, with a view-weighted engagement calculation.
+- Published-content tables ranked by lifetime views, ten posts at a time, with links to original posts.
+- Responsive navigation, independent content scrolling, and light/dark themes.
+- Server-side API access, request timeouts, and independent handling of platform failures.
+
+## My role and development process
+
+I defined the requirements from my experience running PatsMemoir, directed implementation, reviewed and tested the results, configured the data connections, and deployed the application. I used Claude Code initially and then Codex to assist development while owning the product decisions and validation.
+
+1. **Prototype:** built navigation, metrics, charts, and content tables using local sample data.
+2. **Refine the experience:** separated metrics with different units into individual charts; improved mobile navigation, themes, and scrolling.
+3. **Integrate real data:** moved from an exploratory Supabase/direct-connector approach to Windsor for the immediate project scope.
+4. **Clarify reporting:** distinguished period analytics, account totals, and lifetime video views instead of presenting them as interchangeable.
+5. **Deploy:** published on Vercel with server-side configuration and linked content back to the source platforms.
+
+The main lesson was to validate what a metric means before deciding how to visualize or combine it. A shared interface does not mean every platform supplies identical history or fields.
+
+## Technology stack
+
+| Technology | Purpose |
+| --- | --- |
+| TypeScript | Shared data types and application logic |
+| Next.js 16 / React 19 | Server-rendered routes and interactive dashboard components |
+| Tailwind CSS 4 / CSS | Responsive styling and theme rules |
+| SVG / Lucide React | Custom chart rendering and interface icons |
+| Windsor.ai REST API | Connector for YouTube and TikTok source analytics |
+| Vercel | Hosting, server execution, and environment configuration |
+
+No database or authentication service is required by the current application.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Y[YouTube] --> W[Windsor API]
+  T[TikTok] --> W
+  W --> A[Server-only platform adapters]
+  A --> D[Shared analytics types and aggregation]
+  D --> N[Next.js page]
+  N --> R[React cards, charts and content tables]
+```
+
+The adapters request fields from Windsor, validate the response envelope, convert values, and map rows into the dashboard's shared types. `getLiveDashboard()` loads the platform datasets independently, builds the available overview, and passes serializable data to the React interface. API credentials remain on the server.
+
+```text
+src/app/                         Overview, platform and Growth Coach routes
+src/components/dashboard/       Navigation, metrics, charts, tables and coach UI
+src/lib/integrations/windsor/    YouTube and TikTok requests and data mapping
+src/lib/analytics/              Overview aggregation and all-time summaries
+src/lib/dashboard-data.ts       Shared types, platform metadata and formatting
+```
+
+## Data definitions and limitations
+
+- **Freshness:** Windsor requests use a one-hour Next.js cache (`revalidate: 3600`). Refreshing the browser does not guarantee newer source data. Windsor and the platforms have their own reporting delays; this is not a real-time feed.
+- **Period metrics:** shared controls expose 7 and 30 days. The YouTube adapter also supports longer history, while TikTok daily requests currently use the available 60-day window. Historical availability depends on the connector and account.
+- **Followers:** audience totals are snapshots, not the number gained in the selected period. YouTube history is reconstructed from current subscribers and reported gains/losses; TikTok uses reported follower counts and carries forward available values.
+- **Engagement:** daily rates use likes, comments and shares divided by views. The overview weights rates by views. Post-level YouTube engagement uses likes and comments because those are the fields requested for the catalogue.
+- **All time:** account totals are separate from historical charts. TikTok account lifetime views are unavailable; the sum of returned video views is labelled as tracked-video views, not a verified account total.
+- **Content:** lists use Windsor's returned catalogue, independent of the period selector. Retrieval begins at January 1, 2018 and may not include every historic, deleted, private, or unavailable post.
+- **Failures and missing data:** a failed platform request does not reject the entire dashboard. The current UI can show zeros or unavailable values. Missing daily fields can also become zeros; those values should not be treated as proof of no activity. Better completeness indicators are future work.
+- **Audience:** follower totals across platforms are not deduplicated people. This public dashboard has no user accounts or persistent database.
 
 ## Run locally
 
-Use Node.js 24 LTS.
+Use Node.js 22 or newer:
 
 ```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-When the lockfile has not changed and `node_modules` already exists, only `npm run dev` is needed.
-
-### macOS and iCloud
-
-If this repository is stored in an iCloud-managed `Documents` folder, mark the project folder **Keep Downloaded**. Offloaded dependency files can make `npm run check` appear frozen even while the dev server still works. A long-term alternative is to keep code under a non-iCloud path such as `~/Developer`.
-
-## Environment
-
-Create the local file once:
-
-```bash
+git clone https://github.com/builtbyPat05/patsmemoir-creator-analytics.git
+cd patsmemoir-creator-analytics
+npm ci
 cp .env.example .env.local
 ```
 
-Required for public Supabase access and authentication:
+Set your own `WINDSOR_API_KEY` in `.env.local` and connect the appropriate YouTube and TikTok accounts in Windsor. Then:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
+npm run dev
 ```
 
-Required only for privileged connector routes and sync jobs:
+Open [localhost:3000](http://localhost:3000). Without a key, the interface renders with empty data. Never commit `.env.local`, put the key in browser code, or use a `NEXT_PUBLIC_` prefix for it.
 
-```bash
-SUPABASE_URL=https://your-project-ref.supabase.co
-SUPABASE_SECRET_KEY=sb_secret_your_key
-```
+If the project lives in an iCloud-managed folder, keep it downloaded so dependency files remain available.
 
-Never prefix a secret or provider client secret with `NEXT_PUBLIC_`. Restart `npm run dev` after changing `.env.local`.
-
-Check the public connection at [http://localhost:3000/api/health/supabase](http://localhost:3000/api/health/supabase). A successful result includes `"connected": true`.
-
-## Authentication
-
-Open [http://localhost:3000/login](http://localhost:3000/login) to create the private creator account or sign in. Supabase Auth owns the session; a database trigger creates the matching `creator_profiles` row.
-
-The public dashboard is intentionally left available in demo mode while integrations are being configured. Real rows are protected with Row Level Security and are loaded only for their authenticated owner.
-
-## YouTube connector
-
-The first real connector is implemented. It supports:
-
-- Google OAuth with hashed, expiring state validation.
-- Offline access and refresh-token rotation.
-- Access and refresh tokens encrypted through Supabase Vault.
-- Channel metadata, one year of daily channel analytics, uploads, and daily video analytics.
-- Normalized post and metric upserts plus sync audit records.
-- Manual refresh from the Connections page.
-
-To activate it:
-
-1. Create or select a project in Google Cloud Console.
-2. Enable **YouTube Data API v3** and **YouTube Analytics API**.
-3. Configure the OAuth consent screen.
-4. Create an OAuth 2.0 **Web application** client.
-5. Add this exact local redirect URI:
-
-```text
-http://localhost:3000/api/connect/youtube/callback
-```
-
-6. Add the credentials to `.env.local`:
-
-```bash
-GOOGLE_OAUTH_CLIENT_ID=
-GOOGLE_OAUTH_CLIENT_SECRET=
-```
-
-7. Restart the dev server, sign in, and open [http://localhost:3000/settings/connections](http://localhost:3000/settings/connections).
-
-## TikTok connector
-
-The TikTok adapter is implemented with Login Kit and the Display API. It imports the authorized creator profile and complete public-video catalog, stores current cumulative counters as daily snapshots, and derives views, follower changes, and engagement gained between snapshots.
-
-TikTok's Display API does not provide historical daily analytics. The first sync therefore creates an honest baseline; subsequent syncs build the trend lines from real changes. Existing lifetime totals are never mislabeled as one day's performance.
-
-To activate it:
-
-1. Create an app at [TikTok for Developers](https://developers.tiktok.com/).
-2. Add **Login Kit** and request approval for `user.info.basic`, `user.info.stats`, and `video.list`.
-3. Register this callback path on your deployed HTTPS domain:
-
-```text
-https://your-domain.example/api/connect/tiktok/callback
-```
-
-TikTok requires an HTTPS redirect URI. For local development, use an HTTPS tunnel and set `NEXT_PUBLIC_SITE_URL` to that tunnel origin.
-
-4. Add the credentials to `.env.local`:
-
-```bash
-TIKTOK_CLIENT_KEY=
-TIKTOK_CLIENT_SECRET=
-```
-
-5. Restart the dev server, sign in, and open the Connections page.
-
-## Instagram connector
-
-The Instagram adapter uses Business Login for Instagram and the Instagram Graph API. It supports professional Creator and Business accounts without requiring a linked Facebook Page. It imports current profile totals, up to 90 days of available account insights, one year of media, media-level insights, encrypted long-lived tokens, daily snapshots, and manual refreshes.
-
-Instagram reports `follower_count` as daily new followers and `followers_count` as the current total. Historical totals are therefore reconstructed as estimates and labeled that way in stored metadata; exact totals accumulate from this dashboard's daily snapshots after connection.
-
-To activate it:
-
-1. Create a Meta Business app and add the Instagram product.
-2. Configure Business Login for Instagram.
-3. Request `instagram_business_basic` and `instagram_business_manage_insights`.
-4. Add this callback on your deployed HTTPS domain:
-
-```text
-https://your-domain.example/api/connect/instagram/callback
-```
-
-Use an HTTPS tunnel for local OAuth and set `NEXT_PUBLIC_SITE_URL` to the tunnel origin.
-
-5. Add the credentials to `.env.local`:
-
-```bash
-META_GRAPH_API_VERSION=v25.0
-INSTAGRAM_APP_ID=
-INSTAGRAM_APP_SECRET=
-```
-
-6. Restart the dev server, sign in, and open the Connections page.
-
-## Facebook connector
-
-The Facebook adapter connects the Pages the signed-in person is allowed to analyze. It exchanges the login token for a long-lived token, stores Page and user tokens in Supabase Vault, imports one year of Page Insights and published posts, records post-level snapshots, and refreshes every connected Page from one Sync action.
-
-To activate it:
-
-1. Add Facebook Login for Business to the Meta app that will own this connector.
-2. Request `pages_show_list`, `pages_read_engagement`, and `read_insights`.
-3. Confirm your Facebook account has the **Analyze** task on the Page.
-4. Add the callback to the app's valid OAuth redirect URIs:
-
-```text
-https://your-domain.example/api/connect/facebook/callback
-```
-
-Use an HTTPS tunnel for local OAuth and set `NEXT_PUBLIC_SITE_URL` to the tunnel origin.
-
-5. Add the credentials to `.env.local`:
-
-```bash
-META_GRAPH_API_VERSION=v25.0
-FACEBOOK_APP_ID=
-FACEBOOK_APP_SECRET=
-```
-
-6. Restart the dev server, sign in, and open the Connections page.
-
-## Database
-
-Versioned SQL is stored in `supabase/migrations`.
-
-Core tables:
-
-- `creator_profiles`: creator settings linked one-to-one with Supabase Auth.
-- `social_accounts`: connected platform identities and sync status.
-- `content_posts`: normalized videos, reels, posts, and shorts.
-- `account_daily_metrics`: daily views, followers, engagement primitives, and publishing counts.
-- `post_daily_metrics`: daily performance for individual content.
-- `account_metric_snapshots`: cumulative account baselines for APIs without daily history.
-- `post_metric_snapshots`: cumulative post baselines used to derive real deltas.
-- `analytics_sync_runs`: import history, counts, and failures.
-- `oauth_connection_states`: short-lived hashed OAuth CSRF state, server role only.
-- `private.social_account_credentials`: references to encrypted Vault secrets, server role only.
-
-Generated TypeScript definitions live in `src/lib/supabase/database.types.ts`.
-
-## Quality checks
+## Verify and deploy
 
 ```bash
 npm run check
 npm run build
+npm start
 ```
 
-`npm run check` runs ESLint followed by the TypeScript compiler. The current hosted database passes Supabase's security advisor with no findings.
+`check` runs ESLint and TypeScript. These checks and a production build passed for this repository update; the project does not yet have a comprehensive automated test suite.
 
-## Code structure
+Deploy the Next.js project on Vercel and set `WINDSOR_API_KEY` in the appropriate deployment environment. The current live app was deployed from the local project using `npx vercel --prod`. GitHub pushes only trigger Vercel deployments after a Git integration is configured. Environment variables persist between deployments; changing one requires a new deployment.
 
-- `src/app`: routes, auth callbacks, health checks, and connector endpoints.
-- `src/components/dashboard`: interactive dashboard UI.
-- `src/lib/analytics/repository.ts`: Supabase aggregation with explicit demo fallback.
-- `src/lib/integrations/youtube`: YouTube OAuth, API parsing, token refresh, and data sync.
-- `src/lib/integrations/tiktok`: TikTok OAuth, Display API parsing, token refresh, snapshots, and data sync.
-- `src/lib/integrations/instagram`: Instagram OAuth, Graph API parsing, token refresh, insights, snapshots, and data sync.
-- `src/lib/integrations/facebook`: Facebook Page OAuth, Page/post insights, encrypted tokens, snapshots, and multi-Page sync.
-- `src/lib/supabase`: typed browser, server, proxy, and admin clients.
-- `src/lib/dashboard-data.ts`: presentation contracts, formatters, and deterministic demo data.
-- `supabase/migrations`: hosted schema history mirrored in source control.
+## Next steps
+
+- Complete the Instagram connection and validate its reporting fields.
+- Distinguish missing data from measured zero activity more consistently.
+- Add adapter fixtures and tests for aggregation, incomplete responses, and reporting periods.
+- Improve data freshness and source-coverage indicators.
+- Evaluate a real Growth Coach integration after the analytics foundation is validated.

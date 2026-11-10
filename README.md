@@ -81,11 +81,11 @@ src/lib/dashboard-data.ts       Shared types, platform metadata and formatting
 
 - **Freshness:** Windsor requests use a one-hour Next.js cache (`revalidate: 3600`). Refreshing the browser does not guarantee newer source data. Windsor and the platforms have their own reporting delays; this is not a real-time feed.
 - **Period metrics:** shared controls expose 7 and 30 days. The YouTube adapter also supports longer history, while TikTok daily requests currently use the available 60-day window. Historical availability depends on the connector and account.
-- **Followers:** audience totals are snapshots, not the number gained in the selected period. YouTube history is reconstructed from current subscribers and reported gains/losses; TikTok uses reported follower counts and carries forward available values.
+- **Followers:** audience totals are snapshots, not the number gained in the selected period. YouTube history is reconstructed from current subscribers and reported gains/losses; TikTok uses reported follower counts, including explicit zero values. Complete daily fields are required for displayed period summaries.
 - **Engagement:** daily rates use likes, comments and shares divided by views. The overview weights rates by views. Post-level YouTube engagement uses likes and comments because those are the fields requested for the catalogue.
 - **All time:** account totals are separate from historical charts. TikTok account lifetime views are unavailable; the sum of returned video views is labelled as tracked-video views, not a verified account total.
 - **Content:** lists use Windsor's returned catalogue, independent of the period selector. Retrieval begins at January 1, 2018 and may not include every historic, deleted, private, or unavailable post.
-- **Failures and missing data:** a failed platform request does not reject the entire dashboard. The current UI can show zeros or unavailable values. Missing daily fields can also become zeros; those values should not be treated as proof of no activity. Better completeness indicators are future work.
+- **Failures and missing data:** a failed platform request does not reject the entire dashboard. Period metrics require finite, nonnegative daily fields for the current and previous windows. Missing days or fields mark the whole channel period unavailable, and the overview lists included channels. Explicit zero values remain valid. This conservative rule can suppress genuine zero-activity days when a provider omits them. Provider exports are needed to establish omitted-row semantics before relaxing it.
 - **Audience:** follower totals across platforms are not deduplicated people. This public dashboard has no user accounts or persistent database.
 
 ## Run locally
@@ -112,19 +112,50 @@ If the project lives in an iCloud-managed folder, keep it downloaded so dependen
 ## Verify and deploy
 
 ```bash
+npm test
 npm run check
 npm run build
 npm start
 ```
 
-`check` runs ESLint and TypeScript. These checks and a production build passed for this repository update; the project does not yet have a comprehensive automated test suite.
+`check` runs ESLint and TypeScript. Nine fixture tests cover missing values, explicit zeros, UTC windows, malformed responses, weighted aggregation, a drop to zero, and partial platform failure through the normal loader. Tests, lint, TypeScript, and production build pass for this revision. Live provider reconciliation remains pending.
 
 Deploy the Next.js project on Vercel and set `WINDSOR_API_KEY` in the appropriate deployment environment. The current live app was deployed from the local project using `npx vercel --prod`. GitHub pushes only trigger Vercel deployments after a Git integration is configured. Environment variables persist between deployments; changing one requires a new deployment.
 
-## Next steps
+## Reliability validation
 
-- Complete the Instagram connection and validate its reporting fields.
-- Distinguish missing data from measured zero activity more consistently.
-- Add adapter fixtures and tests for aggregation, incomplete responses, and reporting periods.
-- Improve data freshness and source-coverage indicators.
-- Evaluate a real Growth Coach integration after the analytics foundation is validated.
+This package is a private update based on source revision
+`6bd22fdc82078a7dccf11e6fe9b570e5b9adc02e`. 
+Codex implemented these reliability changes and tests under my direction.
+
+```mermaid
+flowchart LR
+  P[YouTube and TikTok] --> W[Windsor response]
+  W --> C[Server cache · one hour]
+  C --> V[Validate daily fields and both UTC windows]
+  V -->|Complete| A[Sum views and weight engagement]
+  V -->|Incomplete| U[Unavailable channel period]
+  A --> R[React metrics and charts]
+  U --> R
+```
+
+### Reconcile a real reporting window
+
+Choose a completed UTC window and its preceding comparison window. Export daily
+views, likes, comments, shares, and follower data from each platform. Record export
+time, time zone, connector response time, and field definitions. Compare totals with
+the adapter output and investigate absent dates separately from explicit zero values.
+A browser refresh can use cached data. Record differences before making accuracy or
+freshness claims.
+
+The nine tests use constructed provider responses and require no credentials.
+Catalogue completeness, platform time-zone alignment, and actual account totals
+require provider reconciliation. Percentage change from a zero baseline retains the
+existing zero display convention and needs a future undefined/new-activity state.
+
+## Focused follow-up
+
+- Reconcile real provider exports and confirm omitted-row semantics.
+- Add source retrieval timestamps and per-field coverage if the strict period rule
+  hides too much useful data.
+- Evaluate Growth Coach only after analytics reliability is established.

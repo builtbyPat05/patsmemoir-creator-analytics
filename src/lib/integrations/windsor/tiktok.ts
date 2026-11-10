@@ -1,3 +1,4 @@
+import { hasMetrics, coversPeriod, unavailable } from "../../analytics/quality";
 import "server-only";
 
 import type { AllTimeStats } from "@/lib/analytics/all-time";
@@ -133,7 +134,7 @@ export async function getWindsorTikTokAnalytics(): Promise<AnalyticsByRange> {
     ),
   ]);
 
-  if (daily.length === 0 || daily.every((row) => number(row.video_views) === 0 && number(row.total_followers_count) === 0)) {
+  if (daily.length === 0) {
     throw new Error("Windsor has no usable TikTok daily data for this account");
   }
 
@@ -145,6 +146,9 @@ export async function getWindsorTikTokAnalytics(): Promise<AnalyticsByRange> {
     byDate.set(row.date, rows);
   }
 
+  const validDates = new Set([...byDate.entries()].filter(([, rows]) =>
+    rows.every((row) => hasMetrics(row, ["video_views", "likes", "comments", "shares", "total_followers_count"]))
+  ).map(([date]) => date));
   let followers = 0;
   const points: PerformancePoint[] = [];
   for (let day = endDay - 59; day <= endDay; day++) {
@@ -156,7 +160,7 @@ export async function getWindsorTikTokAnalytics(): Promise<AnalyticsByRange> {
       0,
     );
     for (const row of rows) {
-      if (number(row.total_followers_count) > 0) {
+      if (hasMetrics(row, ["total_followers_count"])) {
         followers = number(row.total_followers_count);
       }
     }
@@ -188,18 +192,12 @@ export async function getWindsorTikTokAnalytics(): Promise<AnalyticsByRange> {
 
   return Object.fromEntries(performanceRangeKeys.map((range) => {
     if (range === "90d" || range === "1y") {
-      const unavailable: AnalyticsData = {
-        views: 0,
-        engagementRate: 0,
-        followers: 0,
-        postsPublished: 0,
-        changes: { views: 0, engagementRate: 0, followers: 0, postsPublished: 0 },
-        performanceData: [],
-        topPosts: [],
-      };
-      return [range, unavailable];
+      return [range, unavailable("This connector supports 7- and 30-day reporting.")];
     }
     const days = RANGE_DAYS[range];
+    if (!coversPeriod(validDates, endDate, days * 2)) {
+      return [range, unavailable("Daily fields are missing in this period or its comparison window.")];
+    }
     const current = points.slice(-days);
     const previous = points.slice(-days * 2, -days);
     const totalViews = (items: PerformancePoint[]) => items.reduce((sum, point) => sum + point.views, 0);
@@ -213,6 +211,7 @@ export async function getWindsorTikTokAnalytics(): Promise<AnalyticsByRange> {
     const currentPosts = allPosts.filter((post) => post.publishedAt >= start && post.publishedAt <= endDate);
     const previousPosts = allPosts.filter((post) => post.publishedAt >= previousStart && post.publishedAt <= previousEnd);
     const analytics: AnalyticsData = {
+      previous: { views: totalViews(previous), followers: previous.at(-1)?.followers ?? 0, engagementRate: engagementRate(previous) },
       views: totalViews(current),
       engagementRate: engagementRate(current),
       followers: current.at(-1)?.followers ?? 0,

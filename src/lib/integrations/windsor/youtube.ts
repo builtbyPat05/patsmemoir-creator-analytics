@@ -1,3 +1,4 @@
+import { hasMetrics, coversPeriod, unavailable } from "../../analytics/quality";
 import "server-only";
 
 import type { AllTimeStats } from "@/lib/analytics/all-time";
@@ -144,6 +145,10 @@ export async function getWindsorYoutubeAnalytics(): Promise<AnalyticsByRange> {
   const count = number(channel[0]?.subscriber_count);
   const dailyByDate = new Map(daily.map((row) => [row.date, row]));
   const growthByDate = new Map(growth.map((row) => [row.date, row]));
+  const validDates = new Set(daily.filter((row) =>
+    hasMetrics(row, ["views", "likes", "comments", "shares"]) &&
+    hasMetrics(growthByDate.get(row.date), ["subscribers_gained_channel", "subscribers_lost_channel"])
+  ).map((row) => row.date));
   const points: PerformancePoint[] = [];
   let followers = count;
 
@@ -165,6 +170,9 @@ export async function getWindsorYoutubeAnalytics(): Promise<AnalyticsByRange> {
 
   return Object.fromEntries(performanceRangeKeys.map((range) => {
     const days = DAYS[range];
+    if (!hasMetrics(channel[0], ["subscriber_count"]) || !coversPeriod(validDates, endDate, days * 2)) {
+      return [range, unavailable("Daily fields are missing in this period or its comparison window.")];
+    }
     const current = points.slice(-days);
     const previous = points.slice(-days * 2, -days);
     const total = (items: PerformancePoint[]) => items.reduce((sum, point) => sum + point.views, 0);
@@ -177,6 +185,7 @@ export async function getWindsorYoutubeAnalytics(): Promise<AnalyticsByRange> {
     const posts = buildPosts(videos, periodStart, endDate);
     const previousPosts = buildPosts(videos, previousStart, addDays(periodStart, -1));
     const analytics: AnalyticsData = {
+      previous: { views: total(previous), followers: previous.at(-1)?.followers ?? count, engagementRate: weightedEngagement(previous) },
       views: total(current),
       engagementRate: weightedEngagement(current),
       followers: current.at(-1)?.followers ?? count,

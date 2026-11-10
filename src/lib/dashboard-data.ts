@@ -31,6 +31,8 @@ export type Post = {
 };
 
 export type AnalyticsData = {
+  unavailableReason?: string;
+  previous?: { views: number; followers: number; engagementRate: number };
   views: number;
   engagementRate: number;
   followers: number;

@@ -49,8 +49,8 @@ export function PlatformBreakdown({ analyticsByPlatform, range }: PlatformBreakd
               <p className="platform-card-name">{platform.label}</p>
               <p className="platform-card-description">{platform.description}</p>
               <div className="platform-card-stats">
-                <span><strong>{formatCompactNumber(analytics.views)}</strong> views</span>
-                <span><strong>{formatPercentage(analytics.engagementRate)}</strong> engagement</span>
+                {analytics.unavailableReason ? <span>{platformKey === "instagram" ? "Not connected" : "Period data unavailable"}</span> : <><span><strong>{formatCompactNumber(analytics.views)}</strong> views</span>
+                <span><strong>{formatPercentage(analytics.engagementRate)}</strong> engagement</span></>}
               </div>
             </Link>
           );

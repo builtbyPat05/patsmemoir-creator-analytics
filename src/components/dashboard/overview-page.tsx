@@ -38,6 +38,9 @@ export function OverviewPage({
   const [range, setRange] = useState<SharedRange>("7d");
   const period = range === "all" ? null : range;
   const analytics = initialAnalyticsByRange[period ?? "7d"];
+  const includedChannels = (["youtube", "tiktok"] as const)
+    .filter((platform) => !initialPlatformAnalyticsByRange[platform][period ?? "7d"].unavailableReason)
+    .map((platform) => platform === "youtube" ? "YouTube" : "TikTok");
   const rangeLabel = period ? performanceRangeLabels[period].toLowerCase() : "all time";
 
   return (
@@ -63,23 +66,24 @@ export function OverviewPage({
 
         {range === "all" ? <AllTimeSummary title="All-time overview" stats={allTime.overview} breakdown={allTime} /> : <>
         <p className="header-subtitle">
-          {connected.youtube && connected.tiktok ? "YouTube and TikTok are included." : "Only available channels are included."} Instagram is not connected yet.
+          {includedChannels.length ? `Included in this period: ${includedChannels.join(" and ")}.` : "No channels have complete period data."} Instagram is not connected yet.
           {!connected.tiktok && " TikTok is currently unavailable."}
         </p>
 
-        <div className="metric-grid">
+        <p className="header-subtitle">Period totals include channels with complete daily fields in both reporting windows. Missing data is marked unavailable. Source requests are cached for one hour.</p>
+        {analytics.unavailableReason ? <p role="status">{analytics.unavailableReason}</p> : <div className="metric-grid">
           <MetricCard label="Total views" value={formatCompactNumber(analytics.views)} change={analytics.changes.views} detail="vs. previous period" tone="coral" />
           <MetricCard label="Engagement rate" value={formatPercentage(analytics.engagementRate)} change={analytics.changes.engagementRate} detail="weighted across platforms" tone="teal" />
           <MetricCard label="Followers" value={formatCompactNumber(analytics.followers)} change={analytics.changes.followers} detail="total audience" tone="violet" />
           <MetricCard label="Posts published" value={String(analytics.postsPublished)} change={analytics.changes.postsPublished} changeUnit="count" detail="in selected period" tone="gold" />
-        </div>
+        </div>}
 
         <PlatformBreakdown
           analyticsByPlatform={initialPlatformAnalyticsByRange}
           range={range}
         />
 
-        <div className="content-grid">
+        {!analytics.unavailableReason && <div className="content-grid">
           <section className="panel chart-panel" aria-labelledby="views-heading">
             <div className="panel-heading">
               <div>
@@ -99,7 +103,7 @@ export function OverviewPage({
           </section>
 
           <CreatorGrowthCoach analytics={analytics} range={range} scopeLabel="All platforms" />
-        </div>
+        </div>}
 
         </>}
 

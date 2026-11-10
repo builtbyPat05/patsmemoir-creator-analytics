@@ -63,11 +63,12 @@ export function AnalyticsPage({ dataSource, allTime, initialAnalyticsByRange, co
           <AllTimeSummary title={`${platformDetails.label} all time`} stats={allTime} platform={platform} />
           {platform === "tiktok" && allTimeSection}
         </> : <>
-        {dataSource === "empty" && <p className="header-subtitle">No analytics are connected for this channel yet. Zeros below are placeholders, not measured results.</p>}
+        {analytics.unavailableReason || dataSource === "empty" ? <p role="status">{platform === "instagram" ? "Instagram is not connected yet." : analytics.unavailableReason ?? "Channel data is currently unavailable."}</p> : <>
+        <p className="header-subtitle">Daily fields cover this period and its comparison window. Source requests are cached for one hour.</p>
 
         <div className="platform-view-banner" style={{ borderLeftColor: platformDetails.color }}>
           <span className="platform-view-dot" style={{ background: platformDetails.color }} aria-hidden="true" />
-          <span>{dataSource === "empty" ? `Waiting for ${platformDetails.label} data` : `Showing only ${platformDetails.label} data`}</span>
+          <span>{`Showing only ${platformDetails.label} data`}</span>
           <span className="platform-view-total">{formatCompactNumber(analytics.views)} total views in the {rangeLabel}</span>
         </div>
 
@@ -100,6 +101,7 @@ export function AnalyticsPage({ dataSource, allTime, initialAnalyticsByRange, co
           <CreatorGrowthCoach analytics={analytics} range={range} scopeLabel={platformDetails.label} />
         </div>
 
+        </>}
         {platform !== "tiktok" && allTimeSection}
 
         </>}

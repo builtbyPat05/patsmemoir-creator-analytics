@@ -33,6 +33,7 @@ export function YoutubeHistory({ analyticsByRange }: { analyticsByRange: Analyti
           ))}
         </div>
       </div>
+      {analytics.unavailableReason ? <p role="status">{analytics.unavailableReason}</p> : <>
       <p className="history-summary">{formatCompactNumber(analytics.views)} views in this period</p>
       <PerformanceChart
         data={analytics.performanceData}
@@ -43,6 +44,7 @@ export function YoutubeHistory({ analyticsByRange }: { analyticsByRange: Analyti
           engagement: analytics.changes.engagementRate,
         }}
       />
+      </>}
     </section>
   );
 }
